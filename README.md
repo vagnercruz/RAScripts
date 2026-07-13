@@ -1,4 +1,4 @@
-This repository holds code for [RetroAchievement sets I worked on](https://retroachievements.org/user/suXin/developer/sets), made with [cruncheevos](https://github.com/suXinjke/cruncheevos) and [RATools](https://github.com/Jamiras/RATools/)
+This repository holds code for [RetroAchievement sets I worked on](https://retroachievements.org/user/Mendino/developer/sets), made with [cruncheevos](https://github.com/suXinjke/cruncheevos) and [RATools](https://github.com/Jamiras/RATools/)
 
 ## cruncheevos
 
