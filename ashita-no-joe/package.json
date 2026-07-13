@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@cruncheevos/cli": "^0.2.0",
+    "@cruncheevos/core": "^0.2.0"
+  }
+}
