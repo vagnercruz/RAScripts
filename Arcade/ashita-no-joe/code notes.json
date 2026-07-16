@@ -1,0 +1,12 @@
+[8-bit] Stage / opponent ID
+  0x00 = Toko Reformatory (street)
+  0x01 = Shohei Inagaki
+  0x02 = Wolf Kanagushi
+  0x03 = Toru Rikiishi
+  0x04 = Gondo / The Ruffian (street)
+  0x05 = Tiger Ozaki
+  0x06 = Carlos Rivera (street)
+  0x07 = Kin Ryuhi
+  0x08 = Harimao (street + ring)
+  0x09 = Jose Mendoza
+  0x0a = Ending
