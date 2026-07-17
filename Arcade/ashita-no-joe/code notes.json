@@ -1,12 +1,135 @@
+{}
+=== CODE NOTES - Legend of Success Joe | Ashita no Joe Densetsu (Game ID 13598) ===
+Cada bloco abaixo é uma note completa: copie o corpo para o Memory Inspector no endereço indicado e publique.
+
+--- 0x0000 ---
+[Notes] Set created with cruncheevos scripts, maintained at:
+https://github.com/vagnercruz/RAScripts/tree/main/Arcade/ashita-no-joe
+Addresses below use the FBNeo mapping: RA address = 68K address - 0x100000.
+
+--- 0x01a5 ---
+[8-bit BCD] Credits
+Value matches the on-screen CREDITS counter (BCD: 0x58 = "58").
++1 per coin inserted, -1 when a credit is consumed (game start / continue).
+Display-only copies exist at 0xf248/0xf289 - they freeze outside the
+title screen, do NOT use them for logic. This is the live counter.
+
+--- 0x0304 ---
 [8-bit] Stage / opponent ID
-  0x00 = Toko Reformatory (street)
-  0x01 = Shohei Inagaki
-  0x02 = Wolf Kanagushi
-  0x03 = Toru Rikiishi
-  0x04 = Gondo / The Ruffian (street)
-  0x05 = Tiger Ozaki
-  0x06 = Carlos Rivera (street)
-  0x07 = Kin Ryuhi
-  0x08 = Harimao (street + ring)
-  0x09 = Jose Mendoza
-  0x0a = Ending
+0x00 = Toko Reformatory (street brawl)
+0x01 = Shohei Inagaki (ring)
+0x02 = Wolf Kanagushi (street - backstage brawl with his bodyguards)
+0x03 = Toru Rikiishi (ring)
+0x04 = Gondo / The Ruffian (street)
+0x05 = Tiger Ozaki (ring)
+0x06 = Carlos Rivera (street)
+0x07 = Kin Ryuhi (ring)
+0x08 = Harimao (street - airport brawl)
+0x09 = Jose Mendoza (ring)
+0x0a = Ending / credits roll
+0xff = Title screen / attract
+Increments exactly on stage clear - Delta/Mem transition X -> X+1 is the
+"completed stage X" signal used by all progression achievements.
+Ring matches = odd values (01/03/05/07/09); street fights = even (00-08).
+
+--- 0x0320 ---
+[8-bit] P1 animation state (frame-by-frame)
+WARNING: NOT reliable as a semantic flag. Values are reused across
+contexts: 0x00 = fight intro AND lying down after a knockdown (frozen);
+0x15 = falling AND also appears at the start of fights.
+Kept documented to save future devs from the trap. For knockdown
+detection use 0x0362 bar-boundary crossings instead.
+
+--- 0x0346 ---
+[8-bit] P1 active NORMAL punch ID
+0x00 = none / 0x02 = hook (confirmed; other normal punches use other values)
+Set while a normal (single A) punch is active; cleared shortly after
+the punch resolves. Power punches use 0x0347 instead.
+
+--- 0x0347 ---
+[8-bit] P1 active POWER punch ID (A+B punches)
+0x00 = none / 0x01 = Power Uppercut (confirmed)
+Other Power punches (Power Straight/Hook/Body Blow) use other values.
+Cleared right on/after the impact frame - achievement logic must accept
+Mem OR Delta when reading it at a hit event ("Tomorrow's Fight").
+
+--- 0x0362 ---
+[8-bit] P1 total energy - all 3 bars in one value (mirror at 0x0364)
+0x78 = full. Bars are NOT equal thirds; boundaries at 0x48 and 0x20
+(bar sizes 48/40/32 units - Joe gets more fragile as he takes beatings).
+A knockdown happens when the value crosses a boundary, and it snaps
+exactly to 0x48 (1st), 0x20 (2nd), 0x00 (3rd = final KO / credit lost).
+Knockdown detection: Delta > boundary AND Mem <= boundary, one frame.
+Between fights a partially-drained bar refills to the top of the current
+bar; fully lost bars never come back within the same credit.
+
+--- 0x0364 ---
+[8-bit] P1 total energy - display mirror of 0x0362
+Use 0x0362 for logic.
+
+--- 0x0368 ---
+[8-bit BCD] Match timer - SECONDS (counts UP from 0:00 each fight)
+BCD: on-screen "42" is stored as 0x42. Tens rollover 0x59 -> minute+1.
+Minutes are at 0x0369. Timer resets at the start of every stage.
+
+--- 0x0369 ---
+[8-bit] Match timer - MINUTES (counts UP, starts at 0 each fight)
+0x00 while less than one minute has elapsed - this is the whole logic
+of "Lightning Knockout" (win with minutes still 0 = under 60 seconds).
+
+--- 0x0384 ---
+[16-bit] P1 Score / 100 (mirror at 0x0388)
+Plain binary, NOT BCD. Displayed score = value x 100
+(e.g. 146 = 14,600 pts; 1000 = 100,000 pts).
+Resets to 0 on continue and on new game - a high score is inherently
+a single-credit run, which naturally protects score achievements
+against credit-feeding.
+
+--- 0x0388 ---
+[16-bit] P1 Score / 100 - display mirror of 0x0384
+Use 0x0384 for logic.
+
+--- 0x03e3 ---
+[8-bit] Continue screen counter
+0x00 = no continue screen shown this run.
++1 each time the continue countdown screen appears.
+Resets to 0 on game over (letting the countdown expire) and on reset.
+0x00 at the moment of beating Jose Mendoza = 1CC run
+("Completely White Ashes").
+
+--- 0x0462 ---
+[8-bit] Opponent total energy (mirror at 0x0464)
+Same structure as P1 (0x78 full, snaps to 0x48/0x20 on knockdowns).
+0x00 = final KO - the frame Delta > 0 AND Mem == 0 is "the winning blow".
+WARNING: entity slots are only stable in 1v1 ring matches. Street
+stages spawn extra actors (bodyguards, pedestrians) and reallocate
+slots - do not anchor logic on this address outside ring fights.
+
+--- 0x0464 ---
+[8-bit] Opponent total energy - display mirror of 0x0462
+Use 0x0462 for logic.
+
+--- 0x0566 ---
+[8-bit] P1 attack class/phase data (paired with 0x0567)
+WARNING: NOT a punch identifier. Values are shared between different
+punches (hook and Power Uppercut read identical values here) and evolve
+during the swing. Documented to prevent future misuse.
+For punch identity use 0x0346 (normal) / 0x0347 (Power).
+
+--- 0xf14c ---
+[8-bit] Total coins inserted - machine bookkeeping (mirror at 0xf180)
+Plain binary, lifetime count this session; unrelated to credits spent.
+
+--- 0xf248 ---
+[8-bit BCD] Credits - DISPLAY COPY (second copy at 0xf289)
+WARNING: freezes when the credit display is not being redrawn
+(e.g. during gameplay). Use 0x01a5 for logic.
+
+--- 0xfdae ---
+[8-bit] Game state (Neo Geo BIOS user mode)
+0x00 = boot / init
+0x01 = title screen / ATTRACT MODE / menus
+0x02 = playing (real game; stays 0x02 through the ending)
+The attract demo runs real gameplay under 0x01 - requiring 0x02 is the
+set-wide demo protection. BIOS-owned: revalidate if the linked BIOS
+ever changes (developed against MVS Asia/Europe ver. 3).

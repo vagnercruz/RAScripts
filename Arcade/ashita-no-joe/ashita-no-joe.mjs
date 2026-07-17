@@ -110,7 +110,8 @@ set.addAchievement({
   ),
 })
 
-// Lutas de ringue vs de rua (0x02 Wolf classificado como rua — CONFIRMAR visualmente)
+// Lutas de ringue vs de rua. Wolf (0x02) confirmado como rua: briga no backstage
+// da arena contra ele e os capangas — não é luta sancionada.
 const RING_STAGES = [0x01, 0x03, 0x05, 0x07, 0x09]
 const STREET_STAGES = [0x00, 0x02, 0x04, 0x06, 0x08]
 
@@ -154,6 +155,136 @@ set.addAchievement({
   description: 'Complete a street fight stage without being knocked down.',
   points: 5,
   conditions: { core: knockdownResetCore, ...altsFor(STREET_STAGES) },
+})
+
+// Score: 16-bit em 0x0384 (espelho 0x0388), armazenado como pontos/100, binário (não BCD).
+// Zera no continue — 100.000 pontos exigem run de crédito único por natureza.
+set.addAchievement({
+  title: 'Become a Legend',
+  description: 'Reach 100,000 points.',
+  points: 10,
+  conditions: $(
+    ['', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
+    ['', 'Delta', '16bit', 0x0384, '<', 'Value', '', 1000],
+    ['', 'Mem',   '16bit', 0x0384, '>=', 'Value', '', 1000],
+  ),
+})
+
+set.addLeaderboard({
+  title: 'Score Attack - 1 Credit',
+  description: 'Highest score on a single credit. Submits on game over or after defeating Jose Mendoza',
+  type: 'SCORE',
+  lowerIsBetter: false,
+  conditions: {
+    // começa quando o score sai de 0 numa partida real (cobre run nova e pós-continue)
+    start: $(
+      ['AndNext', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
+      ['AndNext', 'Delta', '16bit', 0x0384, '=', 'Value', '', 0],
+      ['',        'Mem',   '16bit', 0x0384, '>', 'Value', '', 0],
+    ),
+    cancel: $(
+      ['', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+    ),
+    // envia no ending (9 -> 0x0a) OU quando a tela de continue aparece (0x03e3 incrementa)
+    submit: $(
+      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
+      ['OrNext',  'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
+      ['',        'Mem',   '8bit', 0x03e3, '>', 'Delta', '8bit', 0x03e3],
+    ),
+    value: $(
+      ['Measured', 'Mem', '16bit', 0x0384, '*', 'Value', '', 100],
+    ),
+  },
+})
+
+// Timer da luta (conta PARA CIMA): 0x0368 = segundos [BCD], 0x0369 = minutos.
+// Vencer em menos de 60s = minutos ainda em 0 no frame da vitória.
+set.addAchievement({
+  title: 'Lightning Knockout',
+  description: 'Win a ring match in under 60 seconds.',
+  points: 10,
+  conditions: {
+    core: $(
+      ['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      ['', 'Mem', '8bit', 0x0369, '=', 'Value', '', 0x00],
+    ),
+    ...Object.fromEntries(RING_STAGES.map((s, i) => [`alt${i + 1}`, $(
+      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', s],
+      ['Trigger', 'Mem',   '8bit', 0x0304, '=', 'Value', '', s + 1],
+    )])),
+  },
+})
+
+// Speedruns medidos em frames (Measured 1=1 acumula 1 hit/frame; o site formata como tempo)
+set.addLeaderboard({
+  title: 'Speedrun - Full Game',
+  description: 'Fastest time to beat the game',
+  type: 'FRAMES',
+  lowerIsBetter: true,
+  conditions: {
+    start: $(
+      ['AndNext', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0xff],
+      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x00],
+    ),
+    cancel: $(
+      ['', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+    ),
+    submit: $(
+      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
+      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
+    ),
+    value: $(
+      ['Measured', 'Value', '', 1, '=', 'Value', '', 1],
+    ),
+  },
+})
+
+set.addLeaderboard({
+  title: 'Speedrun - Jose Mendoza',
+  description: 'Fastest time to defeat Jose Mendoza. Getting a game over cancels the attempt',
+  type: 'FRAMES',
+  lowerIsBetter: true,
+  conditions: {
+    start: $(
+      ['AndNext', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x08],
+      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x09],
+    ),
+    // perder a luta (tela de continue aparece) ou sair do jogo cancela a tentativa
+    cancel: $(
+      ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+      ['',       'Mem', '8bit', 0x03e3, '>', 'Delta', '8bit', 0x03e3],
+    ),
+    submit: $(
+      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
+      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
+    ),
+    value: $(
+      ['Measured', 'Value', '', 1, '=', 'Value', '', 1],
+    ),
+  },
+})
+
+// Registradores de golpe: 0x0346 = golpe normal ativo, 0x0347 = golpe Power ativo (01 = Power Uppercut).
+// 0x0347 zera logo após o impacto — por isso aceitamos Mem OU Delta.
+// HP do oponente: 0x0462 (espelho 0x0464), crava 0x00 no nocaute final.
+set.addAchievement({
+  title: "Tomorrow's Fight",
+  description: 'Finish a match with a Power Uppercut.',
+  points: 5,
+  conditions: {
+    core: $(
+      ['',        'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      ['AndNext', 'Delta', '8bit', 0x0462, '>', 'Value', '', 0x00],
+      ['',        'Mem',   '8bit', 0x0462, '=', 'Value', '', 0x00],
+      ['OrNext',  'Mem',   '8bit', 0x0347, '=', 'Value', '', 0x01],
+      ['',        'Delta', '8bit', 0x0347, '=', 'Value', '', 0x01],
+    ),
+    ...Object.fromEntries(RING_STAGES.map((s, i) => [`alt${i + 1}`, $(
+      ['', 'Mem', '8bit', 0x0304, '=', 'Value', '', s],
+    )])),
+  },
 })
 
 export const rich = RichPresence({
