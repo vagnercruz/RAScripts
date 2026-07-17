@@ -53,7 +53,7 @@ set.addAchievement({
 set.addAchievement({
   id: 623797,
   title: 'Completely White Ashes',
-  description: 'Finish the game without using a continue (1CC).',
+  description: 'Finish the game without using a continue.',
   points: 25,
   conditions: $(
     ...stageClearConditions(0x09),
@@ -66,7 +66,8 @@ set.addAchievement({
 
 // "Sem ser derrubado": arma flag ao entrar na luta (hit 1); qualquer queda reseta; vitória dispara.
 set.addAchievement({
-  title: 'Stand Tall Against the Champion',
+  id: 624039,
+  title: 'Stand Tall against the Champion',
   description: 'Defeat Jose Mendoza without being knocked down.',
   points: 25,
   conditions: $(
@@ -90,6 +91,7 @@ set.addAchievement({
 // "No máximo 1 queda": quedas acumulam num pool (AddHits); a 2ª reseta a flag.
 // PauseIf congela o grupo fora da luta do Rikiishi para quedas anteriores não contarem.
 set.addAchievement({
+  id: 624040,
   title: 'Master of the Sway',
   description: 'Defeat Rikiishi while suffering no more than one knockdown.',
   points: 10,
@@ -144,13 +146,15 @@ const altsFor = stages =>
   Object.fromEntries(stages.map((s, i) => [`alt${i + 1}`, flawlessFight(s)]))
 
 set.addAchievement({
-  title: 'Standing Until the End',
+  id: 624041,
+  title: 'Standing until the End',
   description: 'Win a ring match without being knocked down.',
   points: 5,
   conditions: { core: knockdownResetCore, ...altsFor(RING_STAGES) },
 })
 
 set.addAchievement({
+  id: 624042,
   title: 'King of the Streets',
   description: 'Complete a street fight stage without being knocked down.',
   points: 5,
@@ -160,6 +164,7 @@ set.addAchievement({
 // Score: 16-bit em 0x0384 (espelho 0x0388), armazenado como pontos/100, binário (não BCD).
 // Zera no continue — 100.000 pontos exigem run de crédito único por natureza.
 set.addAchievement({
+  id: 624163,
   title: 'Become a Legend',
   description: 'Reach 100,000 points.',
   points: 10,
@@ -170,7 +175,39 @@ set.addAchievement({
   ),
 })
 
+// Degrau do Become a Legend (50.000 pts = valor 500). Recicla o slot da
+// duplicata acidental 624164, atendendo ao pedido do CR por mais conquistas.
+set.addAchievement({
+  id: 624164,
+  title: 'Rising Star',
+  description: 'Reach 50,000 points.',
+  points: 5,
+  conditions: $(
+    ['', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
+    ['', 'Delta', '16bit', 0x0384, '<', 'Value', '', 500],
+    ['', 'Mem',   '16bit', 0x0384, '>=', 'Value', '', 500],
+  ),
+})
+
+// Esquiva perfeita: vencer luta de ringue sem tomar dano algum.
+// Mesmo esqueleto do Standing until the End, com reset em qualquer queda de HP.
+set.addAchievement({
+  id: 624167,
+  title: 'Untouchable',
+  description: 'Win a ring match without taking any damage.',
+  points: 10,
+  conditions: {
+    core: $(
+      inRealMatch,
+      ['AndNext', 'Mem', '8bit', 0x0304, '<=', 'Value', '', 0x09],
+      ['ResetIf', 'Mem', '8bit', 0x0362, '<', 'Delta', '8bit', 0x0362],
+    ),
+    ...altsFor(RING_STAGES),
+  },
+})
+
 set.addLeaderboard({
+  id: 167454,
   title: 'Score Attack - 1 Credit',
   description: 'Highest score on a single credit. Submits on game over or after defeating Jose Mendoza',
   type: 'SCORE',
@@ -178,9 +215,9 @@ set.addLeaderboard({
   conditions: {
     // começa quando o score sai de 0 numa partida real (cobre run nova e pós-continue)
     start: $(
-      ['AndNext', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
-      ['AndNext', 'Delta', '16bit', 0x0384, '=', 'Value', '', 0],
-      ['',        'Mem',   '16bit', 0x0384, '>', 'Value', '', 0],
+      ['', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
+      ['', 'Delta', '16bit', 0x0384, '=', 'Value', '', 0],
+      ['', 'Mem',   '16bit', 0x0384, '>', 'Value', '', 0],
     ),
     cancel: $(
       ['', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
@@ -200,6 +237,7 @@ set.addLeaderboard({
 // Timer da luta (conta PARA CIMA): 0x0368 = segundos [BCD], 0x0369 = minutos.
 // Vencer em menos de 60s = minutos ainda em 0 no frame da vitória.
 set.addAchievement({
+  id: 624165,
   title: 'Lightning Knockout',
   description: 'Win a ring match in under 60 seconds.',
   points: 10,
@@ -217,22 +255,23 @@ set.addAchievement({
 
 // Speedruns medidos em frames (Measured 1=1 acumula 1 hit/frame; o site formata como tempo)
 set.addLeaderboard({
+  id: 167461,
   title: 'Speedrun - Full Game',
   description: 'Fastest time to beat the game',
   type: 'FRAMES',
   lowerIsBetter: true,
   conditions: {
     start: $(
-      ['AndNext', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
-      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0xff],
-      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x00],
+      ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0xff],
+      ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x00],
     ),
     cancel: $(
       ['', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
     ),
     submit: $(
-      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
-      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
+      ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
+      ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
     ),
     value: $(
       ['Measured', 'Value', '', 1, '=', 'Value', '', 1],
@@ -241,15 +280,16 @@ set.addLeaderboard({
 })
 
 set.addLeaderboard({
+  id: 167462,
   title: 'Speedrun - Jose Mendoza',
   description: 'Fastest time to defeat Jose Mendoza. Getting a game over cancels the attempt',
   type: 'FRAMES',
   lowerIsBetter: true,
   conditions: {
     start: $(
-      ['AndNext', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
-      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x08],
-      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x09],
+      ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x08],
+      ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x09],
     ),
     // perder a luta (tela de continue aparece) ou sair do jogo cancela a tentativa
     cancel: $(
@@ -257,8 +297,8 @@ set.addLeaderboard({
       ['',       'Mem', '8bit', 0x03e3, '>', 'Delta', '8bit', 0x03e3],
     ),
     submit: $(
-      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
-      ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
+      ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
+      ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
     ),
     value: $(
       ['Measured', 'Value', '', 1, '=', 'Value', '', 1],
@@ -270,13 +310,14 @@ set.addLeaderboard({
 // 0x0347 zera logo após o impacto — por isso aceitamos Mem OU Delta.
 // HP do oponente: 0x0462 (espelho 0x0464), crava 0x00 no nocaute final.
 set.addAchievement({
+  id: 624166,
   title: "Tomorrow's Fight",
   description: 'Finish a match with a Power Uppercut.',
   points: 5,
   conditions: {
     core: $(
       ['',        'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
-      ['AndNext', 'Delta', '8bit', 0x0462, '>', 'Value', '', 0x00],
+      ['',        'Delta', '8bit', 0x0462, '>', 'Value', '', 0x00],
       ['',        'Mem',   '8bit', 0x0462, '=', 'Value', '', 0x00],
       ['OrNext',  'Mem',   '8bit', 0x0347, '=', 'Value', '', 0x01],
       ['',        'Delta', '8bit', 0x0347, '=', 'Value', '', 0x01],
@@ -285,6 +326,41 @@ set.addAchievement({
       ['', 'Mem', '8bit', 0x0304, '=', 'Value', '', s],
     )])),
   },
+})
+
+// Speedrun por estágio (Mendoza já tem o LB 167462). Mesmo padrão dos speedruns:
+// start na entrada da luta, cancel em game over/saída, submit na vitória, valor em frames.
+const FIGHT_NAMES = [
+  'Toko Reformatory', 'Shohei Inagaki', 'Wolf Kanagushi', 'Toru Rikiishi', 'Gondo',
+  'Tiger Ozaki', 'Carlos Rivera', 'Kin Ryuhi', 'Harimao',
+]
+
+FIGHT_NAMES.forEach((name, s) => {
+  set.addLeaderboard({
+    id: 167463 + s,
+    title: `Speedrun - ${name}`,
+    description: 'Fastest time to clear the stage. Getting a game over cancels the attempt',
+    type: 'FRAMES',
+    lowerIsBetter: true,
+    conditions: {
+      start: $(
+        ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+        ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', s === 0 ? 0xff : s - 1],
+        ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', s],
+      ),
+      cancel: $(
+        ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+        ['',       'Mem', '8bit', 0x03e3, '>', 'Delta', '8bit', 0x03e3],
+      ),
+      submit: $(
+        ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', s],
+        ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', s + 1],
+      ),
+      value: $(
+        ['Measured', 'Value', '', 1, '=', 'Value', '', 1],
+      ),
+    },
+  })
 })
 
 export const rich = RichPresence({
@@ -313,7 +389,11 @@ export const rich = RichPresence({
       $(['', 'Mem', '8bit', 0x0304, '=', 'Value', '', 0x0a]),
       'Tomorrow has come: Joe Yabuki is the World Bantamweight Champion',
     ],
-    tag`Joe is fighting ${lookup.Fight}`,
+    [
+      $(['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02]),
+      tag`Joe is fighting ${lookup.Fight}`,
+    ],
+    'Joe Yabuki, on the road to tomorrow',
   ],
 })
 
