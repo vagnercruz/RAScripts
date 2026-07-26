@@ -7,8 +7,18 @@ const set = new AchievementSet({
 
 const inRealMatch = ['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02]
 
+// Trava de 1 jogador. BIOS_PLAYER_MOD2 em 0xfdb6 (0 = fora, 1 = jogando).
+// ATENÇÃO: a RAM do 68K aparece com os bytes trocados dentro de cada palavra de
+// 16 bits, então o endereço da wiki do Neo Geo ($10FDB7) cai em 0xfdb6 aqui —
+// 0xfdb7 é o status do P1 e vale 1 o tempo todo (não serve de trava).
+// Com P2 na sessão o jogo dá turnos alternados, o que daria segunda chance em
+// todos os desafios; o set inteiro exige sessão de 1 jogador.
+const noPlayer2 = ['', 'Mem', '8bit', 0xfdb6, '=', 'Value', '', 0x00]
+const resetIfPlayer2 = ['ResetIf', 'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00]
+
 const stageClearConditions = from => [
   inRealMatch,
+  noPlayer2,
   ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', from],
   ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', from + 1],
 ]
@@ -55,9 +65,18 @@ set.addAchievement({
   title: 'Completely White Ashes',
   description: 'Finish the game without using a continue.',
   points: 25,
+  // 0xfdb6 volta a 0 quando o P2 termina, então "P2 == 0 na vitória" não basta:
+  // uma flag armada no início da run (título -> estágio 0) morre se o P2 entrar
+  // em qualquer momento, garantindo que a run inteira foi de 1 jogador.
   conditions: $(
-    ...stageClearConditions(0x09),
-    ['', 'Mem', '8bit', 0x03e3, '=', 'Value', '', 0],
+    inRealMatch,
+    noPlayer2,
+    ['',        'Mem',   '8bit', 0x03e3, '=', 'Value', '', 0],
+    ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0xff],
+    ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x00, 1],
+    resetIfPlayer2,
+    ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
+    ['Trigger', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
   ),
 })
 
@@ -74,6 +93,7 @@ set.addAchievement({
     ['AndNext', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
     ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x08],
     ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x09, 1],
+    resetIfPlayer2,
     ['AndNext', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x09],
     ['AndNext', 'Delta', '8bit', 0x0362, '>', 'Value', '', 0x48],
     ['ResetIf', 'Mem',   '8bit', 0x0362, '<=', 'Value', '', 0x48],
@@ -100,6 +120,7 @@ set.addAchievement({
     ['PauseIf', 'Mem',   '8bit', 0x0304, '!=', 'Value', '', 0x04],
     ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x02],
     ['',        'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x03, 1],
+    resetIfPlayer2,
     ['AndNext', 'Delta', '8bit', 0x0362, '>', 'Value', '', 0x48],
     ['AddHits', 'Mem',   '8bit', 0x0362, '<=', 'Value', '', 0x48],
     ['AndNext', 'Delta', '8bit', 0x0362, '>', 'Value', '', 0x20],
@@ -121,6 +142,7 @@ const STREET_STAGES = [0x00, 0x02, 0x04, 0x06, 0x08]
 // Gate 0x0304 <= 9 impede reset por limpeza de memória nas telas de ending.
 const knockdownResetCore = $(
   ['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02],
+  resetIfPlayer2,
   ['AndNext', 'Mem',   '8bit', 0x0304, '<=', 'Value', '', 0x09],
   ['AndNext', 'Delta', '8bit', 0x0362, '>', 'Value', '', 0x48],
   ['ResetIf', 'Mem',   '8bit', 0x0362, '<=', 'Value', '', 0x48],
@@ -170,6 +192,7 @@ set.addAchievement({
   points: 10,
   conditions: $(
     ['', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
+    noPlayer2,
     ['', 'Delta', '16bit', 0x0384, '<', 'Value', '', 1000],
     ['', 'Mem',   '16bit', 0x0384, '>=', 'Value', '', 1000],
   ),
@@ -184,6 +207,7 @@ set.addAchievement({
   points: 5,
   conditions: $(
     ['', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
+    noPlayer2,
     ['', 'Delta', '16bit', 0x0384, '<', 'Value', '', 500],
     ['', 'Mem',   '16bit', 0x0384, '>=', 'Value', '', 500],
   ),
@@ -199,6 +223,7 @@ set.addAchievement({
   conditions: {
     core: $(
       inRealMatch,
+      resetIfPlayer2,
       ['AndNext', 'Mem', '8bit', 0x0304, '<=', 'Value', '', 0x09],
       ['ResetIf', 'Mem', '8bit', 0x0362, '<', 'Delta', '8bit', 0x0362],
     ),
@@ -216,11 +241,13 @@ set.addLeaderboard({
     // começa quando o score sai de 0 numa partida real (cobre run nova e pós-continue)
     start: $(
       ['', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
+      noPlayer2,
       ['', 'Delta', '16bit', 0x0384, '=', 'Value', '', 0],
       ['', 'Mem',   '16bit', 0x0384, '>', 'Value', '', 0],
     ),
     cancel: $(
-      ['', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+      ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+      ['',       'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00],
     ),
     // envia no ending (9 -> 0x0a) OU quando a tela de continue aparece (0x03e3 incrementa)
     submit: $(
@@ -244,6 +271,7 @@ set.addAchievement({
   conditions: {
     core: $(
       ['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      noPlayer2,
       ['', 'Mem', '8bit', 0x0369, '=', 'Value', '', 0x00],
     ),
     ...Object.fromEntries(RING_STAGES.map((s, i) => [`alt${i + 1}`, $(
@@ -257,17 +285,19 @@ set.addAchievement({
 set.addLeaderboard({
   id: 167461,
   title: 'Speedrun - Full Game',
-  description: 'Fastest time to beat the game',
+  description: 'Fastest time to beat the game. The timer runs from the first stage until the ending starts',
   type: 'FRAMES',
   lowerIsBetter: true,
   conditions: {
     start: $(
       ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      noPlayer2,
       ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0xff],
       ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x00],
     ),
     cancel: $(
-      ['', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+      ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+      ['',       'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00],
     ),
     submit: $(
       ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
@@ -282,18 +312,20 @@ set.addLeaderboard({
 set.addLeaderboard({
   id: 167462,
   title: 'Speedrun - Jose Mendoza',
-  description: 'Fastest time to defeat Jose Mendoza. Getting a game over cancels the attempt',
+  description: 'Fastest clear of the final fight. The timer runs from the moment the stage loads until the ending starts, so the intro and victory scenes are included. Getting a game over cancels the attempt',
   type: 'FRAMES',
   lowerIsBetter: true,
   conditions: {
     start: $(
       ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      noPlayer2,
       ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x08],
       ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x09],
     ),
-    // perder a luta (tela de continue aparece) ou sair do jogo cancela a tentativa
+    // perder a luta (tela de continue), P2 entrar ou sair do jogo cancela a tentativa
     cancel: $(
       ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+      ['OrNext', 'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00],
       ['',       'Mem', '8bit', 0x03e3, '>', 'Delta', '8bit', 0x03e3],
     ),
     submit: $(
@@ -317,6 +349,7 @@ set.addAchievement({
   conditions: {
     core: $(
       ['',        'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      noPlayer2,
       ['',        'Delta', '8bit', 0x0462, '>', 'Value', '', 0x00],
       ['',        'Mem',   '8bit', 0x0462, '=', 'Value', '', 0x00],
       ['OrNext',  'Mem',   '8bit', 0x0347, '=', 'Value', '', 0x01],
@@ -339,17 +372,19 @@ FIGHT_NAMES.forEach((name, s) => {
   set.addLeaderboard({
     id: 167463 + s,
     title: `Speedrun - ${name}`,
-    description: 'Fastest time to clear the stage. Getting a game over cancels the attempt',
+    description: 'Fastest stage clear. The timer runs from the moment the stage loads until the next one starts, so the intro and victory scenes are included. Getting a game over cancels the attempt',
     type: 'FRAMES',
     lowerIsBetter: true,
     conditions: {
       start: $(
         ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
+        noPlayer2,
         ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', s === 0 ? 0xff : s - 1],
         ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', s],
       ),
       cancel: $(
         ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
+        ['OrNext', 'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00],
         ['',       'Mem', '8bit', 0x03e3, '>', 'Delta', '8bit', 0x03e3],
       ),
       submit: $(

@@ -133,3 +133,36 @@ WARNING: freezes when the credit display is not being redrawn
 The attract demo runs real gameplay under 0x01 - requiring 0x02 is the
 set-wide demo protection. BIOS-owned: revalidate if the linked BIOS
 ever changes (developed against MVS Asia/Europe ver. 3).
+
+--- 0xfdb6 ---
+[8-bit] Player 2 status (BIOS PLAYER_MOD2) - SET-WIDE 1P LOCK
+0x00 = not in the session (also once P2 is done - it does NOT stay
+latched, so a fresh 1P run right after a 2P session is fine)
+0x01 = P2 playing
+0x02 = continue screen being displayed
+0x03 = game over
+IMPORTANT: this game accepts a P2 credit and gives each player alternating
+turns, so a second player is a free retry at every challenge and can bypass
+the 1CC. Every achievement and leaderboard here requires 0xfdb6 = 0x00
+(challenges use ResetIf, leaderboards cancel) so unlocks are 1P only.
+Because the value returns to 0x00 once P2 is done, the 1CC achievement also
+arms a run-start flag (title 0xff -> stage 0x00) that a ResetIf on this
+address kills, proving the whole run was single player.
+ADDRESSING: 68K work RAM is exposed byte-swapped within each 16-bit word,
+so BIOS variables sit one byte off from the NeoGeo dev wiki values
+($10FDB7 PLAYER_MOD2 reads here at 0xfdb6; $10FDAF USER_MODE at 0xfdae).
+
+--- 0xfdb7 ---
+[8-bit] Player 1 status (BIOS PLAYER_MOD1)
+0x00 = not in the session
+0x01 = playing - stays 0x01 during any normal single player game
+0x02 = continue screen being displayed
+0x03 = game over
+Do NOT use this as a two-player guard: it is 0x01 in every normal session.
+The P2 lock is 0xfdb6.
+
+--- 0x0704 / 0x0762 ---
+[8-bit] Player 2 mirror of the P1 structs (P1 address + 0x400)
+0x0704 = P2 stage ID (0xff while P2 is not playing)
+0x0762 = P2 total energy (0x78 full, 0x00 while P2 is not playing)
+Useful to confirm whether a second player is really in the session.
