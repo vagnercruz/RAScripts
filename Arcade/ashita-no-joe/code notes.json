@@ -1,6 +1,9 @@
-{}
-=== CODE NOTES - Legend of Success Joe | Ashita no Joe Densetsu (Game ID 13598) ===
-Cada bloco abaixo é uma note completa: copie o corpo para o Memory Inspector no endereço indicado e publique.
+{
+  "title": "Legend of Success Joe | Ashita no Joe Densetsu (Game ID 13598)",
+  "source": "https://github.com/vagnercruz/RAScripts/tree/main/Arcade/ashita-no-joe",
+  "notes": "Addresses below use the FBNeo mapping: RA address = 68K address - 0x100000."
+}
+
 
 --- 0x0000 ---
 [Notes] Set created with cruncheevos scripts, maintained at:
