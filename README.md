@@ -2,7 +2,7 @@ This repository holds code for [RetroAchievement sets I worked on](https://retro
 
 ## cruncheevos
 
-* [Legend of Success Joe | Ashita no Joe Densetsu](https://retroachievements.org/game/13598), Arcade
+* [Legend of Success Joe | Ashita no Joe Densetsu](https://retroachievements.org/game/13598), Arcade (In Review)
 
 ## RATools
 
