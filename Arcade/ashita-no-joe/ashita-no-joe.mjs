@@ -7,12 +7,12 @@ const set = new AchievementSet({
 
 const inRealMatch = ['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02]
 
-// Trava de 1 jogador. BIOS_PLAYER_MOD2 em 0xfdb6 (0 = fora, 1 = jogando).
-// ATENÇÃO: a RAM do 68K aparece com os bytes trocados dentro de cada palavra de
-// 16 bits, então o endereço da wiki do Neo Geo ($10FDB7) cai em 0xfdb6 aqui —
-// 0xfdb7 é o status do P1 e vale 1 o tempo todo (não serve de trava).
-// Com P2 na sessão o jogo dá turnos alternados, o que daria segunda chance em
-// todos os desafios; o set inteiro exige sessão de 1 jogador.
+// Single player lock. BIOS_PLAYER_MOD2 lives at 0xfdb6 (0 = out, 1 = playing).
+// HEADS UP: 68K work RAM is exposed byte-swapped within each 16-bit word, so the
+// NeoGeo dev wiki address ($10FDB7) reads at 0xfdb6 here - 0xfdb7 is P1's status
+// and sits at 1 during any normal session, making it useless as a guard.
+// With P2 in the session the game gives alternating turns, which would be a free
+// retry at every challenge, so the whole set requires a single player session.
 const noPlayer2 = ['', 'Mem', '8bit', 0xfdb6, '=', 'Value', '', 0x00]
 const resetIfPlayer2 = ['ResetIf', 'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00]
 
@@ -25,7 +25,7 @@ const stageClearConditions = from => [
 
 const stageClear = from => $(...stageClearConditions(from))
 
-// IDs = conquistas publicadas em Unofficial no servidor
+// IDs of the achievements already published as Unofficial on the server
 const progression = [
   [623786, 'Boss of the Juvenile Hall', 'Complete the Toko Juvenile Hall stage.'],
   [623787, 'License to Knock Out', 'Defeat Inagaki and earn your professional boxing license.'],
@@ -49,7 +49,7 @@ progression.forEach(([id, title, description], i) => {
   })
 })
 
-// Stage ID: 0x09 = Jose Mendoza, 0x0a = ending (0xfdae segue 0x02 durante o ending)
+// Stage ID: 0x09 = Jose Mendoza, 0x0a = ending (0xfdae stays 0x02 through it)
 set.addAchievement({
   id: 623796,
   title: 'Tomorrow Belongs to Joe',
@@ -59,15 +59,15 @@ set.addAchievement({
   conditions: stageClear(0x09),
 })
 
-// 0x03e3 conta aparições da tela de continue; zera em game over/reset
+// 0x03e3 counts continue screens; resets on game over and on machine reset
 set.addAchievement({
   id: 623797,
   title: 'Completely White Ashes',
   description: 'Finish the game without using a continue.',
   points: 25,
-  // 0xfdb6 volta a 0 quando o P2 termina, então "P2 == 0 na vitória" não basta:
-  // uma flag armada no início da run (título -> estágio 0) morre se o P2 entrar
-  // em qualquer momento, garantindo que a run inteira foi de 1 jogador.
+  // 0xfdb6 returns to 0 once P2 is done, so "P2 == 0 at the win" is not enough:
+  // a flag armed at run start (title -> stage 0) is killed if P2 ever joins,
+  // which proves the whole run was single player.
   conditions: $(
     inRealMatch,
     noPlayer2,
@@ -80,10 +80,11 @@ set.addAchievement({
   ),
 })
 
-// Energia total (0x0362, espelho 0x0364): 0x78 = 3 barras de 0x28.
-// Queda = HP cruzando uma fronteira de barra (0x50, 0x28, 0x00) num único frame.
+// Total energy (0x0362, mirror 0x0364): 0x78 full, bars are NOT equal thirds.
+// A knockdown is HP crossing a bar boundary (0x48, 0x20, 0x00) in a single frame.
 
-// "Sem ser derrubado": arma flag ao entrar na luta (hit 1); qualquer queda reseta; vitória dispara.
+// "Without being knocked down": flag armed on entering the fight (1 hit), any
+// knockdown resets it, and the win only triggers if the flag survived.
 set.addAchievement({
   id: 624039,
   title: 'Stand Tall against the Champion',
@@ -108,8 +109,9 @@ set.addAchievement({
   ),
 })
 
-// "No máximo 1 queda": quedas acumulam num pool (AddHits); a 2ª reseta a flag.
-// PauseIf congela o grupo fora da luta do Rikiishi para quedas anteriores não contarem.
+// "At most 1 knockdown": knockdowns tally into a pool (AddHits) and the second
+// one resets the flag. PauseIf freezes the group outside the Rikiishi fight so
+// knockdowns from earlier stages never count.
 set.addAchievement({
   id: 624040,
   title: 'Master of the Sway',
@@ -133,13 +135,13 @@ set.addAchievement({
   ),
 })
 
-// Lutas de ringue vs de rua. Wolf (0x02) confirmado como rua: briga no backstage
-// da arena contra ele e os capangas — não é luta sancionada.
+// Ring matches vs street fights. Wolf (0x02) confirmed as street: a backstage
+// brawl against him and his bodyguards, not a sanctioned bout.
 const RING_STAGES = [0x01, 0x03, 0x05, 0x07, 0x09]
 const STREET_STAGES = [0x00, 0x02, 0x04, 0x06, 0x08]
 
-// Core compartilhado: em jogo real + qualquer queda (cruzamento de fronteira) reseta.
-// Gate 0x0304 <= 9 impede reset por limpeza de memória nas telas de ending.
+// Shared core: real match, and any knockdown (boundary crossing) resets it.
+// The 0x0304 <= 9 gate keeps ending-screen memory clears from firing a reset.
 const knockdownResetCore = $(
   ['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02],
   resetIfPlayer2,
@@ -154,8 +156,8 @@ const knockdownResetCore = $(
   ['ResetIf', 'Mem',   '8bit', 0x0362, '=', 'Value', '', 0x00],
 )
 
-// Alt por luta: arma ao entrar (vindo do estágio anterior; estágio 0 vem do título 0xff)
-// e dispara na vitória — se a flag sobreviveu às quedas.
+// One alt per fight: armed on entering it (coming from the previous stage; stage
+// 0 comes from the title, 0xff) and triggered by the win, if the flag lived.
 const flawlessFight = stage => $(
   ['AndNext', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
   ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', stage === 0 ? 0xff : stage - 1],
@@ -183,8 +185,8 @@ set.addAchievement({
   conditions: { core: knockdownResetCore, ...altsFor(STREET_STAGES) },
 })
 
-// Score: 16-bit em 0x0384 (espelho 0x0388), armazenado como pontos/100, binário (não BCD).
-// Zera no continue — 100.000 pontos exigem run de crédito único por natureza.
+// Score: 16-bit at 0x0384 (mirror 0x0388), stored as points/100, plain binary
+// (not BCD). Resets on continue, so 100,000 points is inherently a 1-credit run.
 set.addAchievement({
   id: 624163,
   title: 'Become a Legend',
@@ -198,8 +200,9 @@ set.addAchievement({
   ),
 })
 
-// Degrau do Become a Legend (50.000 pts = valor 500). Recicla o slot da
-// duplicata acidental 624164, atendendo ao pedido do CR por mais conquistas.
+// Stepping stone to Become a Legend (50,000 pts = value 500). Reuses the slot of
+// an accidental duplicate (624164); added on the reviewers request for more
+// achievements.
 set.addAchievement({
   id: 624164,
   title: 'Rising Star',
@@ -213,8 +216,8 @@ set.addAchievement({
   ),
 })
 
-// Esquiva perfeita: vencer luta de ringue sem tomar dano algum.
-// Mesmo esqueleto do Standing until the End, com reset em qualquer queda de HP.
+// Perfect defense: win a ring match without taking a single hit. Same skeleton
+// as Standing until the End, but any HP drop resets it.
 set.addAchievement({
   id: 624167,
   title: 'Untouchable',
@@ -238,7 +241,7 @@ set.addLeaderboard({
   type: 'SCORE',
   lowerIsBetter: false,
   conditions: {
-    // começa quando o score sai de 0 numa partida real (cobre run nova e pós-continue)
+    // starts when the score leaves 0 in a real match (new runs and post-continue)
     start: $(
       ['', 'Mem',   '8bit',  0xfdae, '=', 'Value', '', 0x02],
       noPlayer2,
@@ -249,7 +252,7 @@ set.addLeaderboard({
       ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
       ['',       'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00],
     ),
-    // envia no ending (9 -> 0x0a) OU quando a tela de continue aparece (0x03e3 incrementa)
+    // submits at the ending (9 -> 0x0a) OR when the continue screen shows (0x03e3 ticks)
     submit: $(
       ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x09],
       ['OrNext',  'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x0a],
@@ -261,16 +264,16 @@ set.addLeaderboard({
   },
 })
 
-// Timer da luta (conta PARA CIMA): 0x0368 = segundos [BCD], 0x0369 = minutos.
-// Vencer em menos de 60s = minutos ainda em 0 no frame da vitória.
+// Match timer counts UP: 0x0368 = seconds [BCD], 0x0369 = minutes.
+// Winning under 60 seconds means minutes are still 0 at the winning frame.
 set.addAchievement({
   id: 624165,
   title: 'Lightning Knockout',
   description: 'Win a ring match in under 60 seconds.',
   points: 10,
-  // Ancorado no KO (HP do oponente cruzando para 0), não na troca de estágio:
-  // mede a luta em si, sem a animação de vitória, e não acende o challenge
-  // indicator fora do ringue (não há flag Trigger para armar).
+  // Anchored on the KO (opponent HP crossing to 0) instead of the stage change:
+  // it measures the fight itself, free of the victory animation, and it never
+  // lights the challenge indicator outside the ring (no Trigger flag to prime).
   conditions: {
     core: $(
       ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
@@ -285,7 +288,8 @@ set.addAchievement({
   },
 })
 
-// Speedruns medidos em frames (Measured 1=1 acumula 1 hit/frame; o site formata como tempo)
+// Speedruns measured in frames (Measured 1=1 tallies one hit per frame; the site
+// formats the value as a time)
 set.addLeaderboard({
   id: 167461,
   title: 'Speedrun - Full Game',
@@ -326,7 +330,7 @@ set.addLeaderboard({
       ['', 'Delta', '8bit', 0x0304, '=', 'Value', '', 0x08],
       ['', 'Mem',   '8bit', 0x0304, '=', 'Value', '', 0x09],
     ),
-    // perder a luta (tela de continue), P2 entrar ou sair do jogo cancela a tentativa
+    // losing the fight (continue screen), P2 joining, or leaving the game cancels it
     cancel: $(
       ['OrNext', 'Mem', '8bit', 0xfdae, '!=', 'Value', '', 0x02],
       ['OrNext', 'Mem', '8bit', 0xfdb6, '!=', 'Value', '', 0x00],
@@ -342,9 +346,9 @@ set.addLeaderboard({
   },
 })
 
-// Registradores de golpe: 0x0346 = golpe normal ativo, 0x0347 = golpe Power ativo (01 = Power Uppercut).
-// 0x0347 zera logo após o impacto — por isso aceitamos Mem OU Delta.
-// HP do oponente: 0x0462 (espelho 0x0464), crava 0x00 no nocaute final.
+// Move registers: 0x0346 = active normal punch, 0x0347 = active Power punch
+// (0x01 = Power Uppercut). 0x0347 clears right after impact, hence Mem OR Delta.
+// Opponent HP: 0x0462 (mirror 0x0464), snaps to 0x00 on the final KO.
 set.addAchievement({
   id: 624166,
   title: "Tomorrow's Fight",
@@ -365,8 +369,9 @@ set.addAchievement({
   },
 })
 
-// Speedrun por estágio (Mendoza já tem o LB 167462). Mesmo padrão dos speedruns:
-// start na entrada da luta, cancel em game over/saída, submit na vitória, valor em frames.
+// Per-stage speedruns (Mendoza already has board 167462). Same pattern as the
+// other speedruns: start on entering the fight, cancel on game over or leaving,
+// submit on the win, value in frames.
 const FIGHT_NAMES = [
   'Toko Reformatory', 'Shohei Inagaki', 'Wolf Kanagushi', 'Toru Rikiishi', 'Gondo',
   'Tiger Ozaki', 'Carlos Rivera', 'Kin Ryuhi', 'Harimao',

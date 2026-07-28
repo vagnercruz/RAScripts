@@ -1,18 +1,18 @@
-# Dependências
+# Dependencies
 node_modules/
 
-# Variáveis de ambiente
+# Environment variables
 .env
 .env.*
 
 # Logs
 *.log
 
-# Arquivos do sistema
+# System files
 .DS_Store
 Thumbs.db
 
-# Tabelas/planilhas
+# Spreadsheets
 *.xlsx
 *.xls
 *.csv
