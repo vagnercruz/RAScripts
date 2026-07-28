@@ -268,15 +268,19 @@ set.addAchievement({
   title: 'Lightning Knockout',
   description: 'Win a ring match in under 60 seconds.',
   points: 10,
+  // Ancorado no KO (HP do oponente cruzando para 0), não na troca de estágio:
+  // mede a luta em si, sem a animação de vitória, e não acende o challenge
+  // indicator fora do ringue (não há flag Trigger para armar).
   conditions: {
     core: $(
-      ['', 'Mem', '8bit', 0xfdae, '=', 'Value', '', 0x02],
+      ['', 'Mem',   '8bit', 0xfdae, '=', 'Value', '', 0x02],
       noPlayer2,
-      ['', 'Mem', '8bit', 0x0369, '=', 'Value', '', 0x00],
+      ['', 'Mem',   '8bit', 0x0369, '=', 'Value', '', 0x00],
+      ['', 'Delta', '8bit', 0x0462, '>', 'Value', '', 0x00],
+      ['', 'Mem',   '8bit', 0x0462, '=', 'Value', '', 0x00],
     ),
     ...Object.fromEntries(RING_STAGES.map((s, i) => [`alt${i + 1}`, $(
-      ['AndNext', 'Delta', '8bit', 0x0304, '=', 'Value', '', s],
-      ['Trigger', 'Mem',   '8bit', 0x0304, '=', 'Value', '', s + 1],
+      ['', 'Mem', '8bit', 0x0304, '=', 'Value', '', s],
     )])),
   },
 })
